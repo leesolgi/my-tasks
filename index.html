@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="카테고리, 진행률, 백업을 지원하는 개인용 할 일 관리 앱">
+  <title>My Tasks</title>
+  <script>
+    // 화면이 그려지기 전에 테마를 적용해서 깜빡임을 막는다
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem('myTasksTheme'); } catch (e) {}
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#todo-input">할 일 입력으로 건너뛰기</a>
+
+  <main class="app">
+    <header class="app-header">
+      <div class="header-spacer" aria-hidden="true"></div>
+      <h1 class="app-title">
+        My Tasks
+        <span class="remaining-badge" id="remaining-badge" hidden></span>
+      </h1>
+      <button type="button" class="theme-toggle" id="theme-toggle" role="switch" aria-checked="false" aria-label="다크 모드" title="다크 모드 (Alt+D)">
+        <span class="toggle-icon toggle-sun" aria-hidden="true">☀</span>
+        <span class="toggle-icon toggle-moon" aria-hidden="true">☾</span>
+        <span class="toggle-thumb" aria-hidden="true"></span>
+      </button>
+    </header>
+
+    <figure class="quote" aria-label="오늘의 격언">
+      <blockquote class="quote-text" id="quote-text"></blockquote>
+      <figcaption class="quote-author" id="quote-author"></figcaption>
+      <button type="button" class="quote-next" id="quote-next" aria-label="다른 격언 보기" title="다른 격언 보기">↻</button>
+    </figure>
+
+    <section class="dashboard" id="dashboard" aria-label="진행 현황">
+      <div class="dashboard-top">
+        <div class="stat">
+          <span class="stat-label">전체 진행률</span>
+          <span class="stat-value">
+            <strong id="progress-percent">0%</strong>
+            <span class="stat-sub" id="progress-count">0 / 0 완료</span>
+          </span>
+        </div>
+        <div class="stat stat-today">
+          <span class="stat-label">오늘 추가</span>
+          <span class="stat-value"><strong id="today-count">0</strong>개</span>
+        </div>
+      </div>
+
+      <div class="progress-bar" id="progress-bar" role="progressbar" aria-label="전체 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <ul class="category-stats" aria-label="카테고리별 진행률">
+        <li class="category-stat work" data-category="work">
+          <div class="category-stat-head"><span>업무</span><span class="category-stat-count">0/0</span></div>
+          <div class="mini-bar" aria-hidden="true"><div class="mini-fill"></div></div>
+        </li>
+        <li class="category-stat personal" data-category="personal">
+          <div class="category-stat-head"><span>개인</span><span class="category-stat-count">0/0</span></div>
+          <div class="mini-bar" aria-hidden="true"><div class="mini-fill"></div></div>
+        </li>
+        <li class="category-stat study" data-category="study">
+          <div class="category-stat-head"><span>공부</span><span class="category-stat-count">0/0</span></div>
+          <div class="mini-bar" aria-hidden="true"><div class="mini-fill"></div></div>
+        </li>
+      </ul>
+
+      <p class="cheer-message" id="cheer-message"></p>
+    </section>
+
+    <form class="todo-form" id="todo-form" autocomplete="off" aria-label="할 일 추가">
+      <input type="text" id="todo-input" class="todo-input" placeholder="할 일을 입력하세요" maxlength="100" aria-label="할 일 입력" aria-describedby="form-message" title="새 할 일 (Alt+N)">
+      <select id="category-select" class="category-select" aria-label="카테고리 선택">
+        <option value="work">업무</option>
+        <option value="personal">개인</option>
+        <option value="study">공부</option>
+      </select>
+      <button type="submit" class="add-btn">추가</button>
+    </form>
+    <div class="form-sub">
+      <label class="auto-toggle" title="할 일에 들어간 키워드로 카테고리를 자동으로 골라요">
+        <input type="checkbox" id="auto-category-toggle" checked>
+        키워드로 카테고리 자동 분류
+      </label>
+      <span class="auto-hint" id="auto-hint" aria-live="polite" hidden></span>
+    </div>
+    <p class="form-message" id="form-message" role="status" hidden></p>
+
+    <div class="toolbar">
+      <div class="search">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input type="search" id="search-input" class="search-input" placeholder="할 일 검색" aria-label="할 일 검색" autocomplete="off">
+      </div>
+      <select id="sort-select" class="sort-select" aria-label="정렬 방식">
+        <option value="status">완료 상태순</option>
+        <option value="newest">최신순</option>
+        <option value="oldest">오래된순</option>
+        <option value="category">카테고리순</option>
+        <option value="manual" title="손잡이를 드래그해서 순서를 바꿔요">직접 정렬</option>
+      </select>
+    </div>
+
+    <nav class="filters" id="filters" aria-label="카테고리 필터">
+      <button type="button" class="filter-btn" data-filter="all" title="Alt+1">전체 <span class="filter-count"></span></button>
+      <button type="button" class="filter-btn" data-filter="work" title="Alt+2">업무 <span class="filter-count"></span></button>
+      <button type="button" class="filter-btn" data-filter="personal" title="Alt+3">개인 <span class="filter-count"></span></button>
+      <button type="button" class="filter-btn" data-filter="study" title="Alt+4">공부 <span class="filter-count"></span></button>
+    </nav>
+
+    <p class="sr-only" id="drag-hint">손잡이 버튼에서 위, 아래 화살표 키로 순서를 바꿀 수 있어요.</p>
+    <ul class="todo-list" id="todo-list" aria-label="할 일 목록"></ul>
+
+    <div class="empty-state" id="empty-state" hidden>
+      <div class="empty-icon" id="empty-icon" aria-hidden="true"></div>
+      <p class="empty-title" id="empty-title"></p>
+      <p class="empty-desc" id="empty-desc"></p>
+    </div>
+
+    <div class="list-footer" id="list-footer" hidden>
+      <span class="list-summary" id="list-summary"></span>
+      <button type="button" class="clear-btn" id="clear-completed" hidden></button>
+    </div>
+
+    <section class="data-panel" aria-labelledby="data-title">
+      <div class="data-info">
+        <h2 class="data-title" id="data-title">데이터 백업</h2>
+        <p class="backup-status" id="backup-status"></p>
+      </div>
+      <div class="data-actions">
+        <button type="button" class="data-btn" id="export-btn">내보내기</button>
+        <button type="button" class="data-btn" id="import-btn">가져오기</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+      </div>
+    </section>
+
+    <footer class="shortcuts" aria-label="키보드 단축키">
+      <span><kbd>Alt</kbd>+<kbd>N</kbd> 새 할 일</span>
+      <span><kbd>Alt</kbd>+<kbd>1</kbd>~<kbd>4</kbd> 필터</span>
+      <span><kbd>Alt</kbd>+<kbd>D</kbd> 다크 모드</span>
+      <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> 실행 취소</span>
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span class="toast-message" id="toast-message"></span>
+    <button type="button" class="toast-undo" id="toast-undo" hidden>실행 취소</button>
+    <button type="button" class="toast-close" id="toast-close" aria-label="알림 닫기">✕</button>
+  </div>
+
+  <div class="sr-only" id="announcer" aria-live="polite" aria-atomic="true"></div>
+
+  <dialog class="dialog" id="import-dialog" aria-labelledby="import-title" aria-describedby="import-summary">
+    <form method="dialog">
+      <h2 class="dialog-title" id="import-title">데이터 가져오기</h2>
+      <p class="dialog-text" id="import-summary"></p>
+      <label class="dialog-check" id="import-backup-label">
+        <input type="checkbox" id="import-backup" checked>
+        가져오기 전에 현재 데이터를 백업 파일로 저장
+      </label>
+      <div class="dialog-actions">
+        <button type="submit" class="dialog-btn" value="cancel">취소</button>
+        <button type="submit" class="dialog-btn" value="merge">합치기</button>
+        <button type="submit" class="dialog-btn dialog-btn-danger" value="replace">덮어쓰기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
